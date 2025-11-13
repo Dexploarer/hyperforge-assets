@@ -45,6 +45,7 @@ import { createFilesRoute } from "./routes/files";
 import { createManagementRoute } from "./routes/management";
 import { createBulkDownloadRoute } from "./routes/bulk-download";
 import { createConfigRoute } from "./routes/config";
+import { createWebSocketRoute } from "./routes/websocket";
 
 // Utilities
 import { serveFile, serveFileHead } from "./utils/file-server";
@@ -76,10 +77,13 @@ const app = new Elysia()
         ignore: (ctx) => {
           // Don't log health checks to reduce noise
           const url = new URL(ctx.request.url);
-          return url.pathname === "/api/health" || url.pathname === "/api/health/ready";
+          return (
+            url.pathname === "/api/health" ||
+            url.pathname === "/api/health/ready"
+          );
         },
       },
-    })
+    }),
   )
 
   // Swagger API documentation
@@ -153,6 +157,7 @@ const app = new Elysia()
   .use(createManagementRoute(DATA_DIR, ASSET_DIRS))
   .use(createBulkDownloadRoute(DATA_DIR))
   .use(createConfigRoute(DATA_DIR, ASSET_DIRS))
+  .use(createWebSocketRoute())
 
   // ============================================
   // STATIC FILE SERVING WITH ADVANCED FEATURES
@@ -284,12 +289,11 @@ const app = new Elysia()
 const startupLogger = pino(pinoConfig);
 
 // Determine base URL for logging (Railway or local)
-const BASE_URL =
-  process.env.RAILWAY_PUBLIC_DOMAIN
-    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-    : process.env.RAILWAY_STATIC_URL ||
-      process.env.CDN_URL ||
-      `http://0.0.0.0:${PORT}`;
+const BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  : process.env.RAILWAY_STATIC_URL ||
+    process.env.CDN_URL ||
+    `http://0.0.0.0:${PORT}`;
 
 // Startup banner - Visual for developers
 if (process.env.NODE_ENV !== "production") {
@@ -302,6 +306,7 @@ if (process.env.NODE_ENV !== "production") {
   console.log(`   📚 API Docs:    ${BASE_URL}/swagger`);
   console.log(`   🎨 Assets:      ${BASE_URL}/api/assets`);
   console.log(`   📤 Upload:      ${BASE_URL}/api/upload`);
+  console.log(`   🔌 WebSocket:   ${BASE_URL.replace("http", "ws")}/ws/events`);
   console.log(`   🖼️  Models:      ${BASE_URL}/models/`);
   console.log(`   ✨ Emotes:      ${BASE_URL}/emotes/`);
   console.log(`   🎵 Music:       ${BASE_URL}/music/`);
@@ -320,6 +325,7 @@ if (process.env.NODE_ENV !== "production") {
   console.log("   ✅ Rate Limiting");
   console.log("   ✅ Security Headers");
   console.log("   ✅ API Key Authentication");
+  console.log("   ✅ WebSocket Event Broadcasting");
   console.log("   ✅ Structured Logging (Pino)");
   console.log("\n" + "=".repeat(70));
   console.log("✅ CDN server ready!");
@@ -327,34 +333,37 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // Structured startup log for production monitoring
-startupLogger.info({
-  event: "server_started",
-  version: "2.0.0",
-  port: Number(PORT),
-  hostname: "0.0.0.0",
-  environment: process.env.NODE_ENV || "development",
-  config: {
-    dataDir: DATA_DIR,
-    corsOrigin: CORS_ORIGIN,
-    authEnabled: !!process.env.CDN_API_KEY,
-    maxRequestBodySize: "100MB",
+startupLogger.info(
+  {
+    event: "server_started",
+    version: "2.0.0",
+    port: Number(PORT),
+    hostname: "0.0.0.0",
+    environment: process.env.NODE_ENV || "development",
+    config: {
+      dataDir: DATA_DIR,
+      corsOrigin: CORS_ORIGIN,
+      authEnabled: !!process.env.CDN_API_KEY,
+      maxRequestBodySize: "100MB",
+    },
+    features: {
+      rangeRequests: true,
+      etagSupport: true,
+      compression: true,
+      rateLimiting: true,
+      securityHeaders: true,
+      apiKeyAuth: !!process.env.CDN_API_KEY,
+      structuredLogging: true,
+    },
+    endpoints: {
+      server: BASE_URL,
+      health: `${BASE_URL}/api/health`,
+      swagger: `${BASE_URL}/swagger`,
+      assets: `${BASE_URL}/api/assets`,
+    },
   },
-  features: {
-    rangeRequests: true,
-    etagSupport: true,
-    compression: true,
-    rateLimiting: true,
-    securityHeaders: true,
-    apiKeyAuth: !!process.env.CDN_API_KEY,
-    structuredLogging: true,
-  },
-  endpoints: {
-    server: BASE_URL,
-    health: `${BASE_URL}/api/health`,
-    swagger: `${BASE_URL}/swagger`,
-    assets: `${BASE_URL}/api/assets`,
-  },
-}, "Asset-Forge CDN started successfully");
+  "Asset-Forge CDN started successfully",
+);
 
 // Export app for type inference
 export type App = typeof app;

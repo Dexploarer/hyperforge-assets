@@ -2,7 +2,7 @@
  * File Upload Route
  * Handles multipart form data uploads with TypeBox validation
  * Protected by API key authentication and strict rate limiting
- * Fires webhook to Asset-Forge app after successful uploads
+ * Broadcasts upload events via WebSocket to connected API servers
  */
 
 import { Elysia } from "elysia";
@@ -11,23 +11,9 @@ import { existsSync, mkdirSync } from "fs";
 import { UploadRequestBody, UploadResponse } from "../types/models";
 import { requireApiKey } from "../middleware/auth";
 import { uploadRateLimit } from "../middleware/rateLimit";
-import {
-  sendWebhookWithRetry,
-  extractAssetId,
-} from "../utils/webhook";
+import { extractAssetId } from "../utils/webhook";
 
 export function createUploadRoute(rootDir: string) {
-  // Webhook configuration from environment
-  const webhookEnabled = process.env.ENABLE_WEBHOOK === "true";
-  const assetForgeApiUrl = process.env.ASSET_FORGE_API_URL;
-  const webhookSecret = process.env.WEBHOOK_SECRET;
-  const retryAttempts = parseInt(
-    process.env.WEBHOOK_RETRY_ATTEMPTS || "3",
-    10,
-  );
-  const retryDelay = parseInt(process.env.WEBHOOK_RETRY_DELAY_MS || "1000", 10);
-  const timeout = parseInt(process.env.WEBHOOK_TIMEOUT_MS || "5000", 10);
-
   return (
     new Elysia({ prefix: "/api", name: "upload" })
       // Apply authentication (requires CDN_API_KEY env var)
@@ -113,15 +99,18 @@ export function createUploadRoute(rootDir: string) {
           },
         },
       )
-      // Fire webhook after response sent (non-blocking)
-      .onAfterResponse(async ({ set, path, request }) => {
-        // Only fire webhook for successful uploads
+      // Broadcast upload events via WebSocket after response sent (non-blocking)
+      .onAfterResponse(async ({ set, path, server }) => {
+        // Only broadcast for successful uploads
         if (path !== "/api/upload" || set.status !== 200) {
           return;
         }
 
-        // Check if webhook is enabled
-        if (!webhookEnabled || !assetForgeApiUrl) {
+        // Check if WebSocket server is available
+        if (!server) {
+          console.warn(
+            "[WebSocket] Server not available for publishing events",
+          );
           return;
         }
 
@@ -146,7 +135,7 @@ export function createUploadRoute(rootDir: string) {
             const assetId = extractAssetId(file.path);
             if (!assetId) {
               console.warn(
-                `[Webhook] Could not extract asset ID from path: ${file.path}`,
+                `[WebSocket] Could not extract asset ID from path: ${file.path}`,
               );
               continue;
             }
@@ -157,16 +146,21 @@ export function createUploadRoute(rootDir: string) {
             assetGroups.get(assetId)!.push(file);
           }
 
-          // Fire webhook for each asset group
-          const cdnBaseUrl = process.env.CDN_URL || (() => {
-            if (process.env.NODE_ENV === 'production') {
-              throw new Error('CDN_URL must be set in production environment');
-            }
-            return `http://0.0.0.0:${process.env.PORT || 3005}`;
-          })();
+          // Broadcast event for each asset group
+          const cdnBaseUrl =
+            process.env.CDN_URL ||
+            (() => {
+              if (process.env.NODE_ENV === "production") {
+                throw new Error(
+                  "CDN_URL must be set in production environment",
+                );
+              }
+              return `http://0.0.0.0:${process.env.PORT || 3005}`;
+            })();
 
           for (const [assetId, files] of assetGroups.entries()) {
-            const payload = {
+            const event = {
+              type: "asset-upload",
               assetId,
               directory: uploadDirectory,
               files: files.map((file) => ({
@@ -180,27 +174,16 @@ export function createUploadRoute(rootDir: string) {
             };
 
             console.log(
-              `[Webhook] Firing webhook for asset ${assetId} (${files.length} files)`,
+              `[WebSocket] Broadcasting upload event for asset ${assetId} (${files.length} files)`,
             );
 
-            // Send webhook with retry logic (fire-and-forget)
-            sendWebhookWithRetry(`${assetForgeApiUrl}/api/cdn/webhook/upload`, payload, {
-              secret: webhookSecret,
-              retryAttempts,
-              retryDelay,
-              timeout,
-            }).catch((error) => {
-              // Log but don't throw - webhook failures shouldn't affect upload
-              console.error(
-                `[Webhook] Failed to send webhook for asset ${assetId}:`,
-                error instanceof Error ? error.message : String(error),
-              );
-            });
+            // Publish to cdn-uploads topic - all connected API servers will receive this
+            server.publish("cdn-uploads", JSON.stringify(event));
           }
         } catch (error) {
-          // Log but don't throw - webhook failures shouldn't affect upload
+          // Log but don't throw - event broadcast failures shouldn't affect upload
           console.error(
-            "[Webhook] Error processing webhook:",
+            "[WebSocket] Error broadcasting upload event:",
             error instanceof Error ? error.message : String(error),
           );
         }
