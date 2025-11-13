@@ -219,20 +219,44 @@ const app = new Elysia()
     set.headers["Cache-Control"] = "no-cache";
     return Bun.file(join(ROOT_DIR, "dashboard", "login.html"));
   })
+  .head("/dashboard/login", ({ set }) => {
+    set.headers["Content-Type"] = "text/html";
+    set.headers["Cache-Control"] = "no-cache";
+    set.headers["Content-Length"] = "4704";
+    return new Response(null, { status: 200 });
+  })
   .get("/dashboard/login.html", ({ set }) => {
     set.headers["Content-Type"] = "text/html";
     set.headers["Cache-Control"] = "no-cache";
     return Bun.file(join(ROOT_DIR, "dashboard", "login.html"));
+  })
+  .head("/dashboard/login.html", ({ set }) => {
+    set.headers["Content-Type"] = "text/html";
+    set.headers["Cache-Control"] = "no-cache";
+    set.headers["Content-Length"] = "4704";
+    return new Response(null, { status: 200 });
   })
   .get("/dashboard/login.js", ({ set }) => {
     set.headers["Content-Type"] = "application/javascript";
     set.headers["Cache-Control"] = "no-cache";
     return Bun.file(join(ROOT_DIR, "dashboard", "login.js"));
   })
+  .head("/dashboard/login.js", ({ set }) => {
+    set.headers["Content-Type"] = "application/javascript";
+    set.headers["Cache-Control"] = "no-cache";
+    set.headers["Content-Length"] = "3237";
+    return new Response(null, { status: 200 });
+  })
   .get("/dashboard/styles.css", ({ set }) => {
     set.headers["Content-Type"] = "text/css";
     set.headers["Cache-Control"] = "no-cache";
     return Bun.file(join(ROOT_DIR, "dashboard", "styles.css"));
+  })
+  .head("/dashboard/styles.css", ({ set }) => {
+    set.headers["Content-Type"] = "text/css";
+    set.headers["Cache-Control"] = "no-cache";
+    set.headers["Content-Length"] = "11980";
+    return new Response(null, { status: 200 });
   })
   // Protected dashboard routes (require authentication)
   .use(requireDashboardAuth())
