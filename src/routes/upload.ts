@@ -151,8 +151,12 @@ export function createUploadRoute(rootDir: string) {
           }
 
           // Fire webhook for each asset group
-          const cdnBaseUrl =
-            process.env.CDN_URL || `http://localhost:${process.env.PORT || 3005}`;
+          const cdnBaseUrl = process.env.CDN_URL || (() => {
+            if (process.env.NODE_ENV === 'production') {
+              throw new Error('CDN_URL must be set in production environment');
+            }
+            return `http://localhost:${process.env.PORT || 3005}`;
+          })();
 
           for (const [assetId, files] of assetGroups.entries()) {
             const payload = {

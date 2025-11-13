@@ -5,8 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginBtnText = document.getElementById('loginBtnText');
   const loginSpinner = document.getElementById('loginSpinner');
   const alertMessage = document.getElementById('alertMessage');
-  const usernameInput = document.getElementById('username');
-  const passwordInput = document.getElementById('password');
+  const tokenInput = document.getElementById('token');
 
   // Check if already authenticated
   checkAuthStatus();
@@ -15,11 +14,17 @@ document.addEventListener('DOMContentLoaded', () => {
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
+    const tokenInput = document.getElementById('token');
+    const token = tokenInput.value.trim();
 
-    if (!username || !password) {
-      showAlert('Please enter both username and password', 'error');
+    if (!token) {
+      showAlert('Please enter your access token', 'error');
+      return;
+    }
+
+    // Basic token format validation
+    if (!token.startsWith('eyJ')) {
+      showAlert('Invalid token format. Token should start with "eyJ"', 'error');
       return;
     }
 
@@ -28,33 +33,33 @@ document.addEventListener('DOMContentLoaded', () => {
     hideAlert();
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ token })
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        showAlert('Login successful! Redirecting...', 'success');
+        showAlert('Authentication successful! Redirecting...', 'success');
 
         // Redirect to dashboard after short delay
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 1000);
       } else {
-        showAlert(data.error || 'Login failed', 'error');
+        showAlert(data.error || 'Authentication failed. Please check your token.', 'error');
         setLoading(false);
 
-        // Clear password field on error
-        passwordInput.value = '';
-        passwordInput.focus();
+        // Clear token field on error
+        tokenInput.value = '';
+        tokenInput.focus();
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Authentication error:', error);
       showAlert('Connection error. Please try again.', 'error');
       setLoading(false);
     }
@@ -100,15 +105,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Focus username field on load
-  usernameInput.focus();
+  // Focus token field on load
+  tokenInput.focus();
 
   // Clear any previous error on input
-  [usernameInput, passwordInput].forEach(input => {
-    input.addEventListener('input', () => {
-      if (!alertMessage.classList.contains('hidden')) {
-        hideAlert();
-      }
-    });
+  tokenInput.addEventListener('input', () => {
+    if (!alertMessage.classList.contains('hidden')) {
+      hideAlert();
+    }
   });
 });

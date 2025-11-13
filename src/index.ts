@@ -34,6 +34,7 @@ import { gracefulShutdown } from "./plugins/graceful-shutdown";
 import { compression } from "./middleware/compression";
 import { securityHeaders } from "./middleware/security";
 import { apiRateLimit, staticFileRateLimit } from "./middleware/rateLimit";
+import { requireDashboardAuth } from "./middleware/auth";
 
 // Routes
 import { healthRoutes } from "./routes/health";
@@ -206,36 +207,45 @@ const app = new Elysia()
     });
   })
 
-  // Dashboard - Asset browser UI
-  .get("/dashboard", async ({ set }) => {
-    const file = Bun.file(join(ROOT_DIR, "dashboard", "index.html"));
-    if (!(await file.exists())) {
-      set.status = 404;
-      return new Response("Dashboard not found", { status: 404 });
-    }
-    return new Response(file, {
-      headers: {
-        "Content-Type": "text/html",
-        "Cache-Control": "no-cache", // Don't cache dashboard
-      },
-    });
+  // Favicon handler (prevent 404 errors in browsers)
+  .get("/favicon.ico", () => {
+    return new Response(null, { status: 204 });
   })
-  .get("/dashboard/*", async ({ params, set }) => {
+
+  // Dashboard - Asset browser UI
+  // Login page and assets are public (no auth required)
+  .get("/dashboard/login", ({ set }) => {
+    set.headers["Content-Type"] = "text/html";
+    set.headers["Cache-Control"] = "no-cache";
+    return Bun.file(join(ROOT_DIR, "dashboard", "login.html"));
+  })
+  .get("/dashboard/login.html", ({ set }) => {
+    set.headers["Content-Type"] = "text/html";
+    set.headers["Cache-Control"] = "no-cache";
+    return Bun.file(join(ROOT_DIR, "dashboard", "login.html"));
+  })
+  .get("/dashboard/login.js", ({ set }) => {
+    set.headers["Content-Type"] = "application/javascript";
+    set.headers["Cache-Control"] = "no-cache";
+    return Bun.file(join(ROOT_DIR, "dashboard", "login.js"));
+  })
+  .get("/dashboard/styles.css", ({ set }) => {
+    set.headers["Content-Type"] = "text/css";
+    set.headers["Cache-Control"] = "no-cache";
+    return Bun.file(join(ROOT_DIR, "dashboard", "styles.css"));
+  })
+  // Protected dashboard routes (require authentication)
+  .use(requireDashboardAuth())
+  .get("/dashboard", ({ set }) => {
+    set.headers["Content-Type"] = "text/html";
+    set.headers["Cache-Control"] = "no-cache";
+    return Bun.file(join(ROOT_DIR, "dashboard", "index.html"));
+  })
+  .get("/dashboard/*", ({ params, set }) => {
     const relativePath = (params as any)["*"] || "";
     const filePath = join(ROOT_DIR, "dashboard", relativePath);
-    const file = Bun.file(filePath);
-
-    if (!(await file.exists())) {
-      set.status = 404;
-      return new Response("File not found", { status: 404 });
-    }
-
-    return new Response(file, {
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-        "Cache-Control": "no-cache",
-      },
-    });
+    set.headers["Cache-Control"] = "no-cache";
+    return Bun.file(filePath);
   })
 
   // Start server

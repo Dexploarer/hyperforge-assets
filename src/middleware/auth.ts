@@ -209,6 +209,174 @@ export function generateApiKey(): string {
   return Buffer.from(bytes).toString("base64url");
 }
 
+/**
+ * SESSION MANAGEMENT FOR DASHBOARD
+ * Sessions are stored in-memory with session cookies
+ */
+
+interface DashboardSession {
+  sessionId: string;
+  privyUserId: string;
+  walletAddress: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+// In-memory session storage (use Redis in production)
+const dashboardSessions = new Map<string, DashboardSession>();
+
+// Session expiry: 24 hours
+const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Create a new dashboard session
+ */
+export function createDashboardSession(
+  privyUserId: string,
+  walletAddress: string,
+): DashboardSession {
+  const sessionId = crypto.randomUUID();
+  const now = Date.now();
+
+  const session: DashboardSession = {
+    sessionId,
+    privyUserId,
+    walletAddress,
+    createdAt: now,
+    expiresAt: now + SESSION_DURATION_MS,
+  };
+
+  dashboardSessions.set(sessionId, session);
+  console.log(
+    `[Dashboard Auth] Created session for user ${privyUserId}: ${sessionId}`,
+  );
+
+  return session;
+}
+
+/**
+ * Get dashboard session by ID
+ */
+export function getDashboardSession(
+  sessionId: string,
+): DashboardSession | null {
+  const session = dashboardSessions.get(sessionId);
+
+  if (!session) {
+    return null;
+  }
+
+  // Check if session is expired
+  if (Date.now() > session.expiresAt) {
+    dashboardSessions.delete(sessionId);
+    console.log(`[Dashboard Auth] Session expired: ${sessionId}`);
+    return null;
+  }
+
+  return session;
+}
+
+/**
+ * Delete dashboard session
+ */
+export function deleteDashboardSession(sessionId: string): boolean {
+  const deleted = dashboardSessions.delete(sessionId);
+  if (deleted) {
+    console.log(`[Dashboard Auth] Deleted session: ${sessionId}`);
+  }
+  return deleted;
+}
+
+/**
+ * Parse session cookie from Cookie header
+ */
+export function parseSessionCookie(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(";").map((c) => c.trim());
+  const sessionCookie = cookies.find((c) => c.startsWith("cdn_session="));
+
+  if (!sessionCookie) return null;
+
+  return sessionCookie.split("=")[1];
+}
+
+/**
+ * Create session cookie Set-Cookie header
+ */
+export function createSessionCookie(sessionId: string): string {
+  const maxAge = SESSION_DURATION_MS / 1000; // Convert to seconds
+
+  return `cdn_session=${sessionId}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}; Path=/`;
+}
+
+/**
+ * Create logout cookie (expires immediately)
+ */
+export function createLogoutCookie(): string {
+  return `cdn_session=; HttpOnly; SameSite=Lax; Max-Age=0; Path=/`;
+}
+
+/**
+ * Middleware to require dashboard authentication
+ * Checks for valid session cookie and redirects to login if not found
+ */
+export function requireDashboardAuth() {
+  return new Elysia({ name: "require-dashboard-auth" }).onBeforeHandle(
+    ({ request, set }) => {
+      // Only check auth if Privy is configured
+      const privyConfigured =
+        process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET;
+
+      if (!privyConfigured) {
+        // No auth configured, allow access
+        return;
+      }
+
+      const cookieHeader = request.headers.get("cookie");
+      const sessionId = parseSessionCookie(cookieHeader);
+
+      if (!sessionId) {
+        // No session cookie, redirect to login
+        set.status = 302;
+        set.headers["Location"] = "/dashboard/login";
+        return;
+      }
+
+      const session = getDashboardSession(sessionId);
+      if (!session) {
+        // Invalid or expired session, redirect to login
+        set.status = 302;
+        set.headers["Location"] = "/dashboard/login";
+        set.headers["Set-Cookie"] = createLogoutCookie();
+        return;
+      }
+
+      // Session valid, allow access
+      console.log(
+        `[Dashboard Auth] Valid session for user: ${session.privyUserId}`,
+      );
+    },
+  );
+}
+
+// Clean up expired sessions every hour
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+
+  for (const [sessionId, session] of dashboardSessions.entries()) {
+    if (now > session.expiresAt) {
+      dashboardSessions.delete(sessionId);
+      cleaned++;
+    }
+  }
+
+  if (cleaned > 0) {
+    console.log(`[Dashboard Auth] Cleaned up ${cleaned} expired sessions`);
+  }
+}, 60 * 60 * 1000); // Every hour
+
 // Log authentication configuration on module load
 console.log("\n[Auth] Authentication Configuration:");
 if (process.env.CDN_API_KEY) {
@@ -218,7 +386,7 @@ if (process.env.CDN_API_KEY) {
 }
 
 if (process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET) {
-  console.log("  ✅ Privy Authentication: Enabled");
+  console.log("  ✅ Privy Authentication: Enabled (Dashboard + API)");
 } else {
   console.log("  ℹ️  Privy Authentication: Disabled (optional)");
 }
