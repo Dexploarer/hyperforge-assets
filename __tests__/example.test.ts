@@ -9,10 +9,13 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { app } from "../src/index";
 
+// Test base URL - can be configured via environment variable
+const TEST_BASE_URL = process.env.TEST_BASE_URL || "http://test-server";
+
 describe("CDN Health Checks", () => {
   test("GET /api/health returns 200", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/health"),
+      new Request(`${TEST_BASE_URL}/api/health`),
     );
 
     expect(response.status).toBe(200);
@@ -24,7 +27,7 @@ describe("CDN Health Checks", () => {
 
   test("GET /api/health/live returns 200", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/health/live"),
+      new Request(`${TEST_BASE_URL}/api/health/live`),
     );
 
     expect(response.status).toBe(200);
@@ -36,7 +39,7 @@ describe("CDN Health Checks", () => {
 
   test("GET /api/health/ready returns 200", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/health/ready"),
+      new Request(`${TEST_BASE_URL}/api/health/ready`),
     );
 
     expect(response.status).toBe(200);
@@ -50,7 +53,7 @@ describe("CDN Health Checks", () => {
 describe("CORS Headers", () => {
   test("OPTIONS request returns CORS headers", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/health", {
+      new Request(`${TEST_BASE_URL}/api/health`, {
         method: "OPTIONS",
       }),
     );
@@ -66,7 +69,7 @@ describe("CORS Headers", () => {
 describe("Security Headers", () => {
   test("Responses include security headers", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/health"),
+      new Request(`${TEST_BASE_URL}/api/health`),
     );
 
     // Security headers are applied by middleware
@@ -81,7 +84,7 @@ describe("Security Headers", () => {
 describe("Compression", () => {
   test("JSON responses support Brotli compression", async () => {
     const response = await app.handle(
-      new Request("http://localhost/api/assets", {
+      new Request(`${TEST_BASE_URL}/api/assets`, {
         headers: {
           "Accept-Encoding": "br, gzip",
         },

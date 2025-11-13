@@ -301,7 +301,7 @@ export function createUploadRoute(rootDir: string) {
 
 ```bash
 # .env
-CDN_URL=http://localhost:3005
+CDN_URL=<your-cdn-url>
 CDN_API_KEY=ioKpjOt02sIDBtRE77Z7zDDwzmjHw6_jIHLuYZ8lzX8
 ```
 

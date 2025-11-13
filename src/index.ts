@@ -283,21 +283,29 @@ const app = new Elysia()
 // Create a standalone Pino logger instance for startup logs
 const startupLogger = pino(pinoConfig);
 
+// Determine base URL for logging (Railway or local)
+const BASE_URL =
+  process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : process.env.RAILWAY_STATIC_URL ||
+      process.env.CDN_URL ||
+      `http://0.0.0.0:${PORT}`;
+
 // Startup banner - Visual for developers
 if (process.env.NODE_ENV !== "production") {
   console.log("\n" + "=".repeat(70));
   console.log("🚀 ASSET-FORGE CDN v2.0 - ELYSIA + BUN");
   console.log("=".repeat(70));
   console.log("\n📍 SERVER ENDPOINTS:");
-  console.log(`   🌐 Server:      http://localhost:${PORT}`);
-  console.log(`   📊 Health:      http://localhost:${PORT}/api/health`);
-  console.log(`   📚 API Docs:    http://localhost:${PORT}/swagger`);
-  console.log(`   🎨 Assets:      http://localhost:${PORT}/api/assets`);
-  console.log(`   📤 Upload:      http://localhost:${PORT}/api/upload`);
-  console.log(`   🖼️  Models:      http://localhost:${PORT}/models/`);
-  console.log(`   ✨ Emotes:      http://localhost:${PORT}/emotes/`);
-  console.log(`   🎵 Music:       http://localhost:${PORT}/music/`);
-  console.log(`   🎛️  Dashboard:   http://localhost:${PORT}/dashboard`);
+  console.log(`   🌐 Server:      ${BASE_URL}`);
+  console.log(`   📊 Health:      ${BASE_URL}/api/health`);
+  console.log(`   📚 API Docs:    ${BASE_URL}/swagger`);
+  console.log(`   🎨 Assets:      ${BASE_URL}/api/assets`);
+  console.log(`   📤 Upload:      ${BASE_URL}/api/upload`);
+  console.log(`   🖼️  Models:      ${BASE_URL}/models/`);
+  console.log(`   ✨ Emotes:      ${BASE_URL}/emotes/`);
+  console.log(`   🎵 Music:       ${BASE_URL}/music/`);
+  console.log(`   🎛️  Dashboard:   ${BASE_URL}/dashboard`);
   console.log("\n🔧 CONFIGURATION:");
   console.log(`   📁 Data Dir:    ${DATA_DIR}`);
   console.log(`   🌍 CORS Origin: ${CORS_ORIGIN}`);
@@ -341,10 +349,10 @@ startupLogger.info({
     structuredLogging: true,
   },
   endpoints: {
-    server: `http://localhost:${PORT}`,
-    health: `http://localhost:${PORT}/api/health`,
-    swagger: `http://localhost:${PORT}/swagger`,
-    assets: `http://localhost:${PORT}/api/assets`,
+    server: BASE_URL,
+    health: `${BASE_URL}/api/health`,
+    swagger: `${BASE_URL}/swagger`,
+    assets: `${BASE_URL}/api/assets`,
   },
 }, "Asset-Forge CDN started successfully");
 

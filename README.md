@@ -51,7 +51,7 @@ cp .env.example .env
 bun run dev
 ```
 
-Server runs at `http://localhost:3005`
+Server runs on port 3005 (configurable via PORT environment variable)
 
 ### Production (Railway)
 
