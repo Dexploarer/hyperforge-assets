@@ -1,0 +1,21 @@
+{
+  "name": "asset-forge-cdn",
+  "version": "1.0.0",
+  "description": "Static CDN for Asset-Forge game assets",
+  "type": "module",
+  "packageManager": "bun@1.1.38",
+  "scripts": {
+    "start": "bun --env-file=.env run server.js",
+    "dev": "bun --env-file=.env run --watch server.js"
+  },
+  "keywords": [
+    "asset-forge",
+    "cdn",
+    "3d",
+    "static-server"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
