@@ -26,3 +26,7 @@ models/*
 # Backups
 backups/
 uploads/
+
+
+.cursor/rules/kluster-code-verify.mdc
+.kluster
