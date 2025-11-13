@@ -17,6 +17,17 @@ import {
 } from "../utils/webhook";
 
 export function createUploadRoute(rootDir: string) {
+  // Webhook configuration from environment
+  const webhookEnabled = process.env.ENABLE_WEBHOOK === "true";
+  const assetForgeApiUrl = process.env.ASSET_FORGE_API_URL;
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  const retryAttempts = parseInt(
+    process.env.WEBHOOK_RETRY_ATTEMPTS || "3",
+    10,
+  );
+  const retryDelay = parseInt(process.env.WEBHOOK_RETRY_DELAY_MS || "1000", 10);
+  const timeout = parseInt(process.env.WEBHOOK_TIMEOUT_MS || "5000", 10);
+
   return (
     new Elysia({ prefix: "/api", name: "upload" })
       // Apply authentication (requires CDN_API_KEY env var)
@@ -65,6 +76,10 @@ export function createUploadRoute(rootDir: string) {
               }
             }
 
+            // Store uploaded files in context for webhook
+            set.headers["x-uploaded-files"] = JSON.stringify(uploadedFiles);
+            set.headers["x-upload-directory"] = targetDir;
+
             return {
               success: true,
               files: uploadedFiles,
@@ -91,5 +106,93 @@ export function createUploadRoute(rootDir: string) {
           },
         },
       )
+      // Fire webhook after response sent (non-blocking)
+      .onAfterResponse(async ({ set, path, request }) => {
+        // Only fire webhook for successful uploads
+        if (path !== "/api/upload" || set.status !== 200) {
+          return;
+        }
+
+        // Check if webhook is enabled
+        if (!webhookEnabled || !assetForgeApiUrl) {
+          return;
+        }
+
+        try {
+          // Extract uploaded files metadata from response headers
+          const uploadedFilesHeader = set.headers["x-uploaded-files"];
+          const uploadDirectory = set.headers["x-upload-directory"];
+
+          if (!uploadedFilesHeader || !uploadDirectory) {
+            return;
+          }
+
+          const uploadedFiles = JSON.parse(uploadedFilesHeader);
+
+          // Group files by asset ID
+          const assetGroups = new Map<
+            string,
+            Array<{ name: string; size: number; path: string }>
+          >();
+
+          for (const file of uploadedFiles) {
+            const assetId = extractAssetId(file.path);
+            if (!assetId) {
+              console.warn(
+                `[Webhook] Could not extract asset ID from path: ${file.path}`,
+              );
+              continue;
+            }
+
+            if (!assetGroups.has(assetId)) {
+              assetGroups.set(assetId, []);
+            }
+            assetGroups.get(assetId)!.push(file);
+          }
+
+          // Fire webhook for each asset group
+          const cdnBaseUrl =
+            process.env.CDN_URL || `http://localhost:${process.env.PORT || 3005}`;
+
+          for (const [assetId, files] of assetGroups.entries()) {
+            const payload = {
+              assetId,
+              directory: uploadDirectory,
+              files: files.map((file) => ({
+                name: file.name,
+                size: file.size,
+                relativePath: file.path,
+                cdnUrl: `${cdnBaseUrl}/${file.path}`,
+              })),
+              uploadedAt: new Date().toISOString(),
+              uploadedBy: null, // TODO: Extract from auth if available
+            };
+
+            console.log(
+              `[Webhook] Firing webhook for asset ${assetId} (${files.length} files)`,
+            );
+
+            // Send webhook with retry logic (fire-and-forget)
+            sendWebhookWithRetry(`${assetForgeApiUrl}/api/cdn/webhook/upload`, payload, {
+              secret: webhookSecret,
+              retryAttempts,
+              retryDelay,
+              timeout,
+            }).catch((error) => {
+              // Log but don't throw - webhook failures shouldn't affect upload
+              console.error(
+                `[Webhook] Failed to send webhook for asset ${assetId}:`,
+                error instanceof Error ? error.message : String(error),
+              );
+            });
+          }
+        } catch (error) {
+          // Log but don't throw - webhook failures shouldn't affect upload
+          console.error(
+            "[Webhook] Error processing webhook:",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      })
   );
 }
