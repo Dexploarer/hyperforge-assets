@@ -17,29 +17,23 @@ export function createWebSocketRoute() {
   }
 
   return new Elysia({ prefix: "/ws", name: "websocket" }).ws("/events", {
-    // Authenticate before upgrading to WebSocket
-    beforeHandle({ request, set }) {
-      const clientApiKey =
-        request.headers.get("x-api-key") ||
-        new URL(request.url).searchParams.get("api_key");
+    // Connection opened - validate API key after upgrade
+    open(ws) {
+      // Validate API key from query params
+      const url = new URL(ws.data.request?.url || "");
+      const clientApiKey = url.searchParams.get("api_key");
 
       if (!clientApiKey || clientApiKey !== apiKey) {
-        console.warn("[WebSocket] Unauthorized connection attempt");
-        set.status = 401;
-        return { error: "Unauthorized - Invalid API key" };
+        console.warn("[WebSocket] Unauthorized connection - closing");
+        ws.close(1008, "Unauthorized - Invalid API key");
+        return;
       }
 
-      console.log("[WebSocket] API key validated");
-      return { apiKey: clientApiKey };
-    },
+      console.log("[WebSocket] Client authenticated and connected");
 
-    // Connection opened
-    open(ws) {
       // Subscribe client to cdn-uploads topic
       ws.subscribe("cdn-uploads");
-      console.log(
-        `[WebSocket] Client connected and subscribed to cdn-uploads topic`,
-      );
+      console.log(`[WebSocket] Client subscribed to cdn-uploads topic`);
 
       // Send welcome message
       ws.send(
