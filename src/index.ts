@@ -115,8 +115,8 @@ const app = new Elysia()
   // API ROUTES
   // ============================================
   .use(healthRoutes)
-  .use(createAssetsRoute(ROOT_DIR, ASSET_DIRS))
-  .use(createUploadRoute(ROOT_DIR))
+  .use(createAssetsRoute(DATA_DIR, ASSET_DIRS))
+  .use(createUploadRoute(DATA_DIR))
 
   // ============================================
   // STATIC FILE SERVING WITH ADVANCED FEATURES
@@ -129,26 +129,26 @@ const app = new Elysia()
   // Models directory - 3D GLB files, metadata, textures
   .get("/models/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "models", relativePath);
+    const filePath = join(DATA_DIR, "models", relativePath);
     return serveFile(filePath, context);
   })
   .head("/models/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "models", relativePath);
+    const filePath = join(DATA_DIR, "models", relativePath);
     return serveFileHead(filePath, context);
   })
 
   // Emotes directory - Animation GLB files
   .get("/emotes/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "emotes", relativePath);
+    const filePath = join(DATA_DIR, "emotes", relativePath);
     return serveFile(filePath, context, {
       contentType: "model/gltf-binary",
     });
   })
   .head("/emotes/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "emotes", relativePath);
+    const filePath = join(DATA_DIR, "emotes", relativePath);
     return serveFileHead(filePath, context, {
       contentType: "model/gltf-binary",
     });
@@ -158,14 +158,14 @@ const app = new Elysia()
   // Range requests are critical for audio seeking
   .get("/music/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "music", relativePath);
+    const filePath = join(DATA_DIR, "music", relativePath);
     return serveFile(filePath, context, {
       contentType: "audio/mpeg",
     });
   })
   .head("/music/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "music", relativePath);
+    const filePath = join(DATA_DIR, "music", relativePath);
     return serveFileHead(filePath, context, {
       contentType: "audio/mpeg",
     });
