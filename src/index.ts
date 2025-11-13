@@ -33,6 +33,9 @@ import { apiRateLimit, staticFileRateLimit } from "./middleware/rateLimit";
 import { healthRoutes } from "./routes/health";
 import { createAssetsRoute } from "./routes/assets";
 import { createUploadRoute } from "./routes/upload";
+import { createAuthStatusRoute } from "./routes/auth-status";
+import { createFilesRoute } from "./routes/files";
+import { createManagementRoute } from "./routes/management";
 
 // Utilities
 import { serveFile, serveFileHead } from "./utils/file-server";
@@ -117,6 +120,9 @@ const app = new Elysia()
   .use(healthRoutes)
   .use(createAssetsRoute(DATA_DIR, ASSET_DIRS))
   .use(createUploadRoute(DATA_DIR))
+  .use(createAuthStatusRoute())
+  .use(createFilesRoute(DATA_DIR, ASSET_DIRS))
+  .use(createManagementRoute(DATA_DIR, ASSET_DIRS))
 
   // ============================================
   // STATIC FILE SERVING WITH ADVANCED FEATURES

@@ -66,3 +66,50 @@ export const ErrorResponse = t.Object({
   message: t.String(),
   details: t.Optional(t.String()),
 });
+
+// Auth Status Response
+export const AuthStatusResponse = t.Object({
+  authEnabled: t.Boolean(),
+  authenticated: t.Boolean(),
+});
+
+// Directory Statistics
+export const DirectoryStats = t.Object({
+  name: t.String(),
+  fileCount: t.Number(),
+  totalSize: t.Number(),
+});
+
+export const DirectoryStatsResponse = t.Object({
+  directories: t.Array(DirectoryStats),
+});
+
+// Delete Response
+export const DeleteResponse = t.Object({
+  success: t.Boolean(),
+  error: t.Optional(t.String()),
+});
+
+// Rename Request & Response
+export const RenameRequestBody = t.Object({
+  oldPath: t.String(),
+  newName: t.String(),
+});
+
+export const RenameResponse = t.Object({
+  success: t.Boolean(),
+  message: t.Optional(t.String()),
+  error: t.Optional(t.String()),
+});
+
+// Bulk Delete Request & Response
+export const BulkDeleteRequestBody = t.Object({
+  filePaths: t.Array(t.String()),
+});
+
+export const BulkDeleteResponse = t.Object({
+  success: t.Boolean(),
+  deleted: t.Number(),
+  failed: t.Number(),
+  error: t.Optional(t.String()),
+});
