@@ -17,9 +17,19 @@ export function createWebSocketRoute() {
   }
 
   return new Elysia({ prefix: "/ws", name: "websocket" }).ws("/events", {
-    // Connection opened
+    // Connection opened - validate API key after upgrade
     open(ws) {
-      console.log("[WebSocket] Client connected");
+      // Validate API key from query params
+      const url = new URL(ws.data.request?.url || "");
+      const clientApiKey = url.searchParams.get("api_key");
+
+      if (!clientApiKey || clientApiKey !== apiKey) {
+        console.warn("[WebSocket] Unauthorized connection - closing");
+        ws.close(1008, "Unauthorized - Invalid API key");
+        return;
+      }
+
+      console.log("[WebSocket] Client authenticated and connected");
 
       // Subscribe client to cdn-uploads topic
       ws.subscribe("cdn-uploads");
