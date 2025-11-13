@@ -17,11 +17,6 @@ export function createWebSocketRoute() {
   }
 
   return new Elysia({ prefix: "/ws", name: "websocket" }).ws("/events", {
-    // Schema for upgrade data
-    upgradeData: t.Object({
-      apiKey: t.String(),
-    }),
-
     // Authenticate before upgrading to WebSocket
     beforeHandle({ request, set }) {
       const clientApiKey =
@@ -76,8 +71,8 @@ export function createWebSocketRoute() {
       console.log("[WebSocket] Client disconnected");
     },
 
-    // Error handling
-    error(ws, error) {
+    // Error handling - Note: Elysia WS error handler takes a single context parameter
+    error({ error }) {
       console.error("[WebSocket] Error:", error);
     },
   });
