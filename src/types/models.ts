@@ -113,3 +113,56 @@ export const BulkDeleteResponse = t.Object({
   failed: t.Number(),
   error: t.Optional(t.String()),
 });
+
+// Bulk Download Request
+export const BulkDownloadRequestBody = t.Object({
+  filePaths: t.Array(t.String()),
+});
+
+// Configuration Models (Read-Only)
+export const ServerConfig = t.Object({
+  port: t.Number(),
+  host: t.String(),
+});
+
+export const CorsConfig = t.Object({
+  allowedOrigins: t.Array(t.String()),
+  allowedMethods: t.Array(t.String()),
+  allowedHeaders: t.Array(t.String()),
+});
+
+export const DirectoriesConfig = t.Object({
+  assets: t.Array(t.String()),
+  upload: t.String(),
+  backups: t.String(),
+});
+
+export const SecurityConfig = t.Object({
+  maxFileSize: t.Number(),
+  allowedFileTypes: t.Array(t.String()),
+  enableAuth: t.Boolean(),
+});
+
+export const FeaturesConfig = t.Object({
+  enableValidation: t.Boolean(),
+  enableBackups: t.Boolean(),
+  autoBackupInterval: t.Number(),
+});
+
+export const UIConfig = t.Object({
+  theme: t.String(),
+  itemsPerPage: t.Number(),
+  defaultSort: t.String(),
+});
+
+export const ConfigResponse = t.Object({
+  success: t.Boolean(),
+  config: t.Object({
+    server: ServerConfig,
+    cors: CorsConfig,
+    directories: DirectoriesConfig,
+    security: SecurityConfig,
+    features: FeaturesConfig,
+    ui: UIConfig,
+  }),
+});

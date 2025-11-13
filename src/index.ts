@@ -36,6 +36,8 @@ import { createUploadRoute } from "./routes/upload";
 import { createAuthStatusRoute } from "./routes/auth-status";
 import { createFilesRoute } from "./routes/files";
 import { createManagementRoute } from "./routes/management";
+import { createBulkDownloadRoute } from "./routes/bulk-download";
+import { createConfigRoute } from "./routes/config";
 
 // Utilities
 import { serveFile, serveFileHead } from "./utils/file-server";
@@ -123,6 +125,8 @@ const app = new Elysia()
   .use(createAuthStatusRoute())
   .use(createFilesRoute(DATA_DIR, ASSET_DIRS))
   .use(createManagementRoute(DATA_DIR, ASSET_DIRS))
+  .use(createBulkDownloadRoute(DATA_DIR))
+  .use(createConfigRoute(DATA_DIR, ASSET_DIRS))
 
   // ============================================
   // STATIC FILE SERVING WITH ADVANCED FEATURES

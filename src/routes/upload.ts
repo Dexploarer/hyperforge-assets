@@ -2,6 +2,7 @@
  * File Upload Route
  * Handles multipart form data uploads with TypeBox validation
  * Protected by API key authentication and strict rate limiting
+ * Fires webhook to Asset-Forge app after successful uploads
  */
 
 import { Elysia } from "elysia";
@@ -10,6 +11,10 @@ import { existsSync, mkdirSync } from "fs";
 import { UploadRequestBody, UploadResponse } from "../types/models";
 import { requireApiKey } from "../middleware/auth";
 import { uploadRateLimit } from "../middleware/rateLimit";
+import {
+  sendWebhookWithRetry,
+  extractAssetId,
+} from "../utils/webhook";
 
 export function createUploadRoute(rootDir: string) {
   return (
