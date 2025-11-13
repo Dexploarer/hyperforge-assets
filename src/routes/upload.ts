@@ -38,6 +38,12 @@ export function createUploadRoute(rootDir: string) {
         "/upload",
         async ({ body, set }) => {
           try {
+            // Debug logging for troubleshooting
+            console.log("[Upload] Request received");
+            console.log("[Upload] Body keys:", Object.keys(body));
+            console.log("[Upload] Files present:", !!body.files);
+            console.log("[Upload] Directory:", body.directory || "models");
+
             const { files, directory } = body;
             const targetDir = directory || "models";
             const uploadedFiles: {
@@ -48,6 +54,7 @@ export function createUploadRoute(rootDir: string) {
 
             // Handle array of files
             const fileArray = Array.isArray(files) ? files : [files];
+            console.log("[Upload] Processing", fileArray.length, "file(s)");
 
             for (const file of fileArray) {
               if (file instanceof File) {

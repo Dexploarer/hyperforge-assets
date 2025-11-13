@@ -30,17 +30,8 @@ export const AssetsListResponse = t.Object({
 export const UploadRequestBody = t.Object({
   files: t.Files({
     maxSize: "100m",
-    // Allow GLB models, images, JSON metadata, and audio files
-    type: [
-      "model/gltf-binary", // 3D models
-      "image/*", // PNG, JPG, WebP, etc.
-      "application/json", // Metadata files
-      "text/plain", // Text files
-      "audio/mpeg", // MP3 audio (music, SFX, voice)
-      "audio/wav", // WAV audio
-      "audio/ogg", // OGG Vorbis audio
-      "audio/webm", // WebM audio
-    ],
+    // No type validation - API key authentication provides security
+    // Elysia's file type validation can be overly strict and inconsistent
   }),
   directory: t.Optional(t.String()),
 });
