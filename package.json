@@ -3,12 +3,16 @@
   "version": "2.0.0",
   "description": "Elysia CDN server for Asset-Forge game assets",
   "type": "module",
-  "packageManager": "bun@1.1.38",
+  "packageManager": "bun@1.3.2",
   "scripts": {
-    "start": "bun --env-file=.env src/index.ts",
-    "dev": "bun --env-file=.env --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "build": "bun build src/index.ts --target=bun --outdir=dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "lint": "echo 'No linter configured yet'",
+    "clean": "rm -rf dist node_modules .turbo *.log"
   },
   "keywords": [
     "asset-forge",
@@ -18,18 +22,25 @@
     "elysia",
     "typescript"
   ],
+  "author": "Asset-Forge Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourorg/asset-forge-cdn.git"
+  },
   "engines": {
-    "node": ">=18.0.0",
-    "bun": ">=1.1.38"
+    "node": ">=22.12.0",
+    "bun": ">=1.3.2"
   },
   "dependencies": {
-    "elysia": "^1.4.15",
     "@elysiajs/cors": "^1.4.0",
-    "@elysiajs/swagger": "^1.3.1"
+    "@elysiajs/swagger": "^1.3.1",
+    "@privy-io/server-auth": "^1.32.5",
+    "elysia": "^1.4.15"
   },
   "devDependencies": {
-    "@types/bun": "^1.1.38",
-    "typescript": "^5.9.3"
+    "@types/bun": "^1.3.2",
+    "@types/node": "^24.10.0",
+    "typescript": "^5.3.3"
   }
 }

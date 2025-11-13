@@ -1,9 +1,15 @@
 /**
- * Asset-Forge CDN - Elysia TypeScript Server
+ * Asset-Forge CDN - Elysia TypeScript Server v2.0
  * High-performance CDN for serving stable game assets
  *
  * Features:
  * - Fast static file serving with Bun.file()
+ * - Range request support for audio/video streaming
+ * - ETag support for conditional requests (304 responses)
+ * - Brotli/Gzip compression for text-based content
+ * - Rate limiting to prevent abuse
+ * - API key authentication for uploads
+ * - Comprehensive security headers
  * - Type-safe file uploads with TypeBox validation
  * - CORS enabled for cross-origin requests
  * - Swagger API documentation
@@ -19,11 +25,17 @@ import { join } from "path";
 // Middleware and plugins
 import { errorHandler } from "./middleware/errorHandler";
 import { gracefulShutdown } from "./plugins/graceful-shutdown";
+import { compression } from "./middleware/compression";
+import { securityHeaders } from "./middleware/security";
+import { apiRateLimit, staticFileRateLimit } from "./middleware/rateLimit";
 
 // Routes
 import { healthRoutes } from "./routes/health";
 import { createAssetsRoute } from "./routes/assets";
 import { createUploadRoute } from "./routes/upload";
+
+// Utilities
+import { serveFile, serveFileHead } from "./utils/file-server";
 
 // Configuration from environment variables
 const ROOT_DIR = process.cwd();
@@ -32,7 +44,7 @@ const PORT = process.env.PORT || 3005;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
 // Asset directories to serve
-const ASSET_DIRS = ["models", "emotes"];
+const ASSET_DIRS = ["models", "emotes", "music"];
 
 // Create Elysia app
 const app = new Elysia()
@@ -47,7 +59,7 @@ const app = new Elysia()
           title: "Asset-Forge CDN API",
           version: "2.0.0",
           description:
-            "Elysia-powered CDN for serving and managing 3D game assets",
+            "High-performance CDN for 3D game assets with range requests, ETags, compression, and rate limiting",
         },
         tags: [
           { name: "Health", description: "Health check endpoints" },
@@ -55,32 +67,127 @@ const app = new Elysia()
           { name: "Upload", description: "File upload management" },
         ],
       },
-    })
+    }),
   )
 
-  // CORS configuration
+  // CORS configuration - Enhanced to support range requests and ETags
   .use(
     cors({
       origin: CORS_ORIGIN,
       credentials: true,
-      methods: ["GET", "POST", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
-    })
+      methods: ["GET", "POST", "HEAD", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-API-Key",
+        "Range", // For partial content requests
+        "If-None-Match", // For ETag conditional requests
+        "If-Modified-Since",
+      ],
+      exposeHeaders: [
+        "Content-Range", // For range responses
+        "Accept-Ranges",
+        "ETag",
+        "Last-Modified",
+        "Content-Length",
+        "Content-Encoding",
+        "X-RateLimit-Limit", // Rate limit info
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+      ],
+      maxAge: 86400, // Cache preflight for 24 hours
+    }),
   )
+
+  // Security headers middleware (apply early)
+  .use(securityHeaders())
+
+  // Compression middleware (before routes, after CORS)
+  .use(compression)
+
+  // Rate limiting for API endpoints (exclude static files)
+  .use(apiRateLimit)
 
   // Error handling middleware
   .use(errorHandler)
 
-  // API Routes
+  // ============================================
+  // API ROUTES
+  // ============================================
   .use(healthRoutes)
   .use(createAssetsRoute(ROOT_DIR, ASSET_DIRS))
   .use(createUploadRoute(ROOT_DIR))
 
-  // Static file serving - models directory
-  // Using Bun.file() pattern from asset-forge (more reliable than @elysiajs/static)
-  .get("/models/*", async ({ params, set }) => {
-    const relativePath = (params as any)["*"] || "";
+  // ============================================
+  // STATIC FILE SERVING WITH ADVANCED FEATURES
+  // All routes use: Range requests, ETags, 304 responses
+  // ============================================
+
+  // Apply rate limiting to static file routes
+  .use(staticFileRateLimit)
+
+  // Models directory - 3D GLB files, metadata, textures
+  .get("/models/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
     const filePath = join(ROOT_DIR, "models", relativePath);
+    return serveFile(filePath, context);
+  })
+  .head("/models/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
+    const filePath = join(ROOT_DIR, "models", relativePath);
+    return serveFileHead(filePath, context);
+  })
+
+  // Emotes directory - Animation GLB files
+  .get("/emotes/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
+    const filePath = join(ROOT_DIR, "emotes", relativePath);
+    return serveFile(filePath, context, {
+      contentType: "model/gltf-binary",
+    });
+  })
+  .head("/emotes/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
+    const filePath = join(ROOT_DIR, "emotes", relativePath);
+    return serveFileHead(filePath, context, {
+      contentType: "model/gltf-binary",
+    });
+  })
+
+  // Music directory - Audio files (MP3, WAV, OGG)
+  // Range requests are critical for audio seeking
+  .get("/music/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
+    const filePath = join(ROOT_DIR, "music", relativePath);
+    return serveFile(filePath, context, {
+      contentType: "audio/mpeg",
+    });
+  })
+  .head("/music/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
+    const filePath = join(ROOT_DIR, "music", relativePath);
+    return serveFileHead(filePath, context, {
+      contentType: "audio/mpeg",
+    });
+  })
+
+  // Dashboard - Asset browser UI
+  .get("/dashboard", async ({ set }) => {
+    const file = Bun.file(join(ROOT_DIR, "dashboard", "index.html"));
+    if (!(await file.exists())) {
+      set.status = 404;
+      return new Response("Dashboard not found", { status: 404 });
+    }
+    return new Response(file, {
+      headers: {
+        "Content-Type": "text/html",
+        "Cache-Control": "no-cache", // Don't cache dashboard
+      },
+    });
+  })
+  .get("/dashboard/*", async ({ params, set }) => {
+    const relativePath = (params as any)["*"] || "";
+    const filePath = join(ROOT_DIR, "dashboard", relativePath);
     const file = Bun.file(filePath);
 
     if (!(await file.exists())) {
@@ -88,66 +195,10 @@ const app = new Elysia()
       return new Response("File not found", { status: 404 });
     }
 
-    // Immutable cache headers for CDN
     return new Response(file, {
       headers: {
-        "Cache-Control": "public, max-age=31536000, immutable",
         "Content-Type": file.type || "application/octet-stream",
-      },
-    });
-  })
-  .head("/models/*", async ({ params, set }) => {
-    const relativePath = (params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "models", relativePath);
-    const file = Bun.file(filePath);
-
-    if (!(await file.exists())) {
-      set.status = 404;
-      return new Response(null, { status: 404 });
-    }
-
-    return new Response(null, {
-      status: 200,
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
-    });
-  })
-
-  // Static file serving - emotes directory
-  .get("/emotes/*", async ({ params, set }) => {
-    const relativePath = (params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "emotes", relativePath);
-    const file = Bun.file(filePath);
-
-    if (!(await file.exists())) {
-      set.status = 404;
-      return new Response("File not found", { status: 404 });
-    }
-
-    return new Response(file, {
-      headers: {
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Type": file.type || "model/gltf-binary",
-      },
-    });
-  })
-  .head("/emotes/*", async ({ params, set }) => {
-    const relativePath = (params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "emotes", relativePath);
-    const file = Bun.file(filePath);
-
-    if (!(await file.exists())) {
-      set.status = 404;
-      return new Response(null, { status: 404 });
-    }
-
-    return new Response(null, {
-      status: 200,
-      headers: {
-        "Content-Type": file.type || "model/gltf-binary",
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": "no-cache",
       },
     });
   })
@@ -161,9 +212,9 @@ const app = new Elysia()
   });
 
 // Startup banner
-console.log("\n" + "=".repeat(60));
-console.log("🚀 ASSET-FORGE CDN - ELYSIA + BUN");
-console.log("=".repeat(60));
+console.log("\n" + "=".repeat(70));
+console.log("🚀 ASSET-FORGE CDN v2.0 - ELYSIA + BUN");
+console.log("=".repeat(70));
 console.log("\n📍 SERVER ENDPOINTS:");
 console.log(`   🌐 Server:      http://localhost:${PORT}`);
 console.log(`   📊 Health:      http://localhost:${PORT}/api/health`);
@@ -172,13 +223,25 @@ console.log(`   🎨 Assets:      http://localhost:${PORT}/api/assets`);
 console.log(`   📤 Upload:      http://localhost:${PORT}/api/upload`);
 console.log(`   🖼️  Models:      http://localhost:${PORT}/models/`);
 console.log(`   ✨ Emotes:      http://localhost:${PORT}/emotes/`);
+console.log(`   🎵 Music:       http://localhost:${PORT}/music/`);
+console.log(`   🎛️  Dashboard:   http://localhost:${PORT}/dashboard`);
 console.log("\n🔧 CONFIGURATION:");
 console.log(`   📁 Data Dir:    ${DATA_DIR}`);
 console.log(`   🌍 CORS Origin: ${CORS_ORIGIN}`);
 console.log(`   🏗️  Environment: ${process.env.NODE_ENV || "development"}`);
-console.log("\n" + "=".repeat(60));
+console.log(
+  `   🔐 Auth:        ${process.env.CDN_API_KEY ? "✅ Enabled" : "⚠️  Disabled"}`,
+);
+console.log("\n✨ FEATURES:");
+console.log("   ✅ Range Requests (audio/video streaming)");
+console.log("   ✅ ETag Support (304 conditional requests)");
+console.log("   ✅ Brotli/Gzip Compression");
+console.log("   ✅ Rate Limiting");
+console.log("   ✅ Security Headers");
+console.log("   ✅ API Key Authentication");
+console.log("\n" + "=".repeat(70));
 console.log("✅ CDN server ready!");
-console.log("=".repeat(60) + "\n");
+console.log("=".repeat(70) + "\n");
 
 // Export app for type inference
 export type App = typeof app;

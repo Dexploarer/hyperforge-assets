@@ -30,8 +30,17 @@ export const AssetsListResponse = t.Object({
 export const UploadRequestBody = t.Object({
   files: t.Files({
     maxSize: "100m",
-    // Allow GLB models, images, JSON metadata
-    type: ["model/gltf-binary", "image/*", "application/json", "text/plain"],
+    // Allow GLB models, images, JSON metadata, and audio files
+    type: [
+      "model/gltf-binary", // 3D models
+      "image/*", // PNG, JPG, WebP, etc.
+      "application/json", // Metadata files
+      "text/plain", // Text files
+      "audio/mpeg", // MP3 audio (music, SFX, voice)
+      "audio/wav", // WAV audio
+      "audio/ogg", // OGG Vorbis audio
+      "audio/webm", // WebM audio
+    ],
   }),
   directory: t.Optional(t.String()),
 });
