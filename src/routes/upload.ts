@@ -127,7 +127,7 @@ export function createUploadRoute(rootDir: string) {
             return;
           }
 
-          const uploadedFiles = JSON.parse(uploadedFilesHeader);
+          const uploadedFiles = JSON.parse(String(uploadedFilesHeader));
 
           // Group files by asset ID
           const assetGroups = new Map<

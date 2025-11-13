@@ -15,12 +15,18 @@
  * - Swagger API documentation
  * - Kubernetes-ready health checks
  * - Graceful shutdown handling
+ * - Structured logging with Pino (high-performance, JSON logs)
  */
 
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
 import { join } from "path";
+import { logger } from "@bogeychan/elysia-logger";
+import pino from "pino";
+
+// Configuration
+import { pinoConfig } from "./config/logger";
 
 // Middleware and plugins
 import { errorHandler } from "./middleware/errorHandler";
@@ -55,6 +61,25 @@ const ASSET_DIRS = ["models", "emotes", "music"];
 const app = new Elysia()
   // Graceful shutdown handler
   .use(gracefulShutdown)
+
+  // Logging middleware - high-performance structured logging with Pino
+  .use(
+    logger({
+      level: pinoConfig.level,
+      serializers: pinoConfig.serializers,
+      transport: pinoConfig.transport,
+      base: pinoConfig.base,
+      timestamp: pinoConfig.timestamp,
+      formatters: pinoConfig.formatters,
+      autoLogging: {
+        ignore: (ctx) => {
+          // Don't log health checks to reduce noise
+          const url = new URL(ctx.request.url);
+          return url.pathname === "/api/health" || url.pathname === "/api/health/ready";
+        },
+      },
+    })
+  )
 
   // Swagger API documentation
   .use(
@@ -221,37 +246,73 @@ const app = new Elysia()
     development: process.env.NODE_ENV !== "production",
   });
 
-// Startup banner
-console.log("\n" + "=".repeat(70));
-console.log("🚀 ASSET-FORGE CDN v2.0 - ELYSIA + BUN");
-console.log("=".repeat(70));
-console.log("\n📍 SERVER ENDPOINTS:");
-console.log(`   🌐 Server:      http://localhost:${PORT}`);
-console.log(`   📊 Health:      http://localhost:${PORT}/api/health`);
-console.log(`   📚 API Docs:    http://localhost:${PORT}/swagger`);
-console.log(`   🎨 Assets:      http://localhost:${PORT}/api/assets`);
-console.log(`   📤 Upload:      http://localhost:${PORT}/api/upload`);
-console.log(`   🖼️  Models:      http://localhost:${PORT}/models/`);
-console.log(`   ✨ Emotes:      http://localhost:${PORT}/emotes/`);
-console.log(`   🎵 Music:       http://localhost:${PORT}/music/`);
-console.log(`   🎛️  Dashboard:   http://localhost:${PORT}/dashboard`);
-console.log("\n🔧 CONFIGURATION:");
-console.log(`   📁 Data Dir:    ${DATA_DIR}`);
-console.log(`   🌍 CORS Origin: ${CORS_ORIGIN}`);
-console.log(`   🏗️  Environment: ${process.env.NODE_ENV || "development"}`);
-console.log(
-  `   🔐 Auth:        ${process.env.CDN_API_KEY ? "✅ Enabled" : "⚠️  Disabled"}`,
-);
-console.log("\n✨ FEATURES:");
-console.log("   ✅ Range Requests (audio/video streaming)");
-console.log("   ✅ ETag Support (304 conditional requests)");
-console.log("   ✅ Brotli/Gzip Compression");
-console.log("   ✅ Rate Limiting");
-console.log("   ✅ Security Headers");
-console.log("   ✅ API Key Authentication");
-console.log("\n" + "=".repeat(70));
-console.log("✅ CDN server ready!");
-console.log("=".repeat(70) + "\n");
+// Create a standalone Pino logger instance for startup logs
+const startupLogger = pino(pinoConfig);
+
+// Startup banner - Visual for developers
+if (process.env.NODE_ENV !== "production") {
+  console.log("\n" + "=".repeat(70));
+  console.log("🚀 ASSET-FORGE CDN v2.0 - ELYSIA + BUN");
+  console.log("=".repeat(70));
+  console.log("\n📍 SERVER ENDPOINTS:");
+  console.log(`   🌐 Server:      http://localhost:${PORT}`);
+  console.log(`   📊 Health:      http://localhost:${PORT}/api/health`);
+  console.log(`   📚 API Docs:    http://localhost:${PORT}/swagger`);
+  console.log(`   🎨 Assets:      http://localhost:${PORT}/api/assets`);
+  console.log(`   📤 Upload:      http://localhost:${PORT}/api/upload`);
+  console.log(`   🖼️  Models:      http://localhost:${PORT}/models/`);
+  console.log(`   ✨ Emotes:      http://localhost:${PORT}/emotes/`);
+  console.log(`   🎵 Music:       http://localhost:${PORT}/music/`);
+  console.log(`   🎛️  Dashboard:   http://localhost:${PORT}/dashboard`);
+  console.log("\n🔧 CONFIGURATION:");
+  console.log(`   📁 Data Dir:    ${DATA_DIR}`);
+  console.log(`   🌍 CORS Origin: ${CORS_ORIGIN}`);
+  console.log(`   🏗️  Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(
+    `   🔐 Auth:        ${process.env.CDN_API_KEY ? "✅ Enabled" : "⚠️  Disabled"}`,
+  );
+  console.log("\n✨ FEATURES:");
+  console.log("   ✅ Range Requests (audio/video streaming)");
+  console.log("   ✅ ETag Support (304 conditional requests)");
+  console.log("   ✅ Brotli/Gzip Compression");
+  console.log("   ✅ Rate Limiting");
+  console.log("   ✅ Security Headers");
+  console.log("   ✅ API Key Authentication");
+  console.log("   ✅ Structured Logging (Pino)");
+  console.log("\n" + "=".repeat(70));
+  console.log("✅ CDN server ready!");
+  console.log("=".repeat(70) + "\n");
+}
+
+// Structured startup log for production monitoring
+startupLogger.info({
+  event: "server_started",
+  version: "2.0.0",
+  port: Number(PORT),
+  hostname: "0.0.0.0",
+  environment: process.env.NODE_ENV || "development",
+  config: {
+    dataDir: DATA_DIR,
+    corsOrigin: CORS_ORIGIN,
+    authEnabled: !!process.env.CDN_API_KEY,
+    maxRequestBodySize: "100MB",
+  },
+  features: {
+    rangeRequests: true,
+    etagSupport: true,
+    compression: true,
+    rateLimiting: true,
+    securityHeaders: true,
+    apiKeyAuth: !!process.env.CDN_API_KEY,
+    structuredLogging: true,
+  },
+  endpoints: {
+    server: `http://localhost:${PORT}`,
+    health: `http://localhost:${PORT}/api/health`,
+    swagger: `http://localhost:${PORT}/swagger`,
+    assets: `http://localhost:${PORT}/api/assets`,
+  },
+}, "Asset-Forge CDN started successfully");
 
 // Export app for type inference
 export type App = typeof app;
