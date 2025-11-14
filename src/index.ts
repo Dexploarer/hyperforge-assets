@@ -334,12 +334,20 @@ const app = new Elysia()
   })
 
   // Start server
-  .listen({
-    port: Number(PORT),
-    hostname: "0.0.0.0", // Bind to all interfaces for Railway/Docker
-    maxRequestBodySize: 100 * 1024 * 1024, // 100MB limit
-    development: process.env.NODE_ENV !== "production",
-  });
+  .listen(
+    {
+      port: Number(PORT),
+      hostname: "0.0.0.0", // Bind to all interfaces for Railway/Docker
+      maxRequestBodySize: 100 * 1024 * 1024, // 100MB limit
+      development: process.env.NODE_ENV !== "production",
+    },
+    ({ hostname, port }) => {
+      console.log(`\n[Server] ✅ Elysia server started successfully!`);
+      console.log(`[Server] Listening on http://${hostname}:${port}`);
+      console.log(`[Server] Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log(`[Server] PORT env var: ${process.env.PORT}\n`);
+    }
+  );
 
 // Create a standalone Pino logger instance for startup logs
 const startupLogger = pino(pinoConfig);
