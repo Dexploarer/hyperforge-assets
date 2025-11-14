@@ -41,7 +41,7 @@ async function validatePrivyToken(
  */
 export function requireApiKey() {
   return new Elysia({ name: "require-api-key" }).onBeforeHandle(
-    ({ request, set }) => {
+    ({ headers, set }) => {
       // Get API key from environment
       const validApiKey = process.env.CDN_API_KEY;
 
@@ -53,18 +53,18 @@ export function requireApiKey() {
         return;
       }
 
-      // Extract API key from request
-      const authHeader = request.headers.get("authorization");
-      const apiKeyHeader = request.headers.get("x-api-key");
+      // Extract API key from headers using Elysia's headers context
+      const authHeader = headers["authorization"] || headers["Authorization"];
+      const apiKeyHeader = headers["x-api-key"] || headers["X-API-Key"];
 
       let providedKey: string | null = null;
 
       // Check Authorization header (Bearer token)
-      if (authHeader?.startsWith("Bearer ")) {
+      if (authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
         providedKey = authHeader.substring(7);
       }
       // Check X-API-Key header
-      else if (apiKeyHeader) {
+      else if (apiKeyHeader && typeof apiKeyHeader === "string") {
         providedKey = apiKeyHeader;
       }
 
@@ -101,7 +101,7 @@ export function requireApiKey() {
  */
 export function requireAuth() {
   return new Elysia({ name: "require-auth" }).derive(
-    async ({ request, set }) => {
+    async ({ headers, set }) => {
       const serviceApiKey = process.env.CDN_API_KEY;
       const privyConfigured =
         process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET;
@@ -114,13 +114,16 @@ export function requireAuth() {
         return { authenticated: true, authType: "none", userId: "anonymous" };
       }
 
-      // Get auth headers
-      const authHeader = request.headers.get("authorization");
-      const apiKeyHeader = request.headers.get("x-api-key");
+      // Get auth headers using Elysia's headers context
+      const authHeader = headers["authorization"] || headers["Authorization"];
+      const apiKeyHeader = headers["x-api-key"] || headers["X-API-Key"];
 
       // Try service API key first (X-API-Key or short Bearer token)
-      if (apiKeyHeader || (authHeader && !authHeader.includes("."))) {
-        const providedKey = apiKeyHeader || authHeader?.substring(7);
+      const authHeaderStr = typeof authHeader === "string" ? authHeader : null;
+      const apiKeyHeaderStr = typeof apiKeyHeader === "string" ? apiKeyHeader : null;
+      
+      if (apiKeyHeaderStr || (authHeaderStr && !authHeaderStr.includes("."))) {
+        const providedKey = apiKeyHeaderStr || authHeaderStr?.substring(7);
 
         if (providedKey === serviceApiKey) {
           console.log("[Auth] Service API key validated");
@@ -135,10 +138,11 @@ export function requireAuth() {
       // Try Privy JWT token (long Bearer token with dots)
       if (
         privyConfigured &&
-        authHeader?.startsWith("Bearer ") &&
-        authHeader.includes(".")
+        authHeaderStr &&
+        authHeaderStr.startsWith("Bearer ") &&
+        authHeaderStr.includes(".")
       ) {
-        const token = authHeader.substring(7);
+        const token = authHeaderStr.substring(7);
         const privyUser = await validatePrivyToken(token);
 
         if (privyUser) {
@@ -173,23 +177,26 @@ export function requireAuth() {
  * Useful for endpoints that have different behavior for authenticated vs unauthenticated requests
  */
 export function optionalApiKey() {
-  return new Elysia({ name: "optional-api-key" }).derive(({ request }) => {
+  return new Elysia({ name: "optional-api-key" }).derive(({ headers }) => {
     const validApiKey = process.env.CDN_API_KEY;
 
     if (!validApiKey) {
       return { isAuthenticated: false };
     }
 
-    // Extract API key from request
-    const authHeader = request.headers.get("authorization");
-    const apiKeyHeader = request.headers.get("x-api-key");
+    // Extract API key from headers using Elysia's headers context
+    const authHeader = headers["authorization"] || headers["Authorization"];
+    const apiKeyHeader = headers["x-api-key"] || headers["X-API-Key"];
 
     let providedKey: string | null = null;
 
-    if (authHeader?.startsWith("Bearer ")) {
-      providedKey = authHeader.substring(7);
-    } else if (apiKeyHeader) {
-      providedKey = apiKeyHeader;
+    const authHeaderStr = typeof authHeader === "string" ? authHeader : null;
+    const apiKeyHeaderStr = typeof apiKeyHeader === "string" ? apiKeyHeader : null;
+
+    if (authHeaderStr?.startsWith("Bearer ")) {
+      providedKey = authHeaderStr.substring(7);
+    } else if (apiKeyHeaderStr) {
+      providedKey = apiKeyHeaderStr;
     }
 
     // Check if API key is valid
@@ -323,7 +330,7 @@ export function createLogoutCookie(): string {
  */
 export function requireDashboardAuth() {
   return new Elysia({ name: "require-dashboard-auth" }).onBeforeHandle(
-    ({ request, set }) => {
+    ({ request, set, redirect }) => {
       // Only check auth if Privy is configured
       const privyConfigured =
         process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET;
@@ -337,19 +344,16 @@ export function requireDashboardAuth() {
       const sessionId = parseSessionCookie(cookieHeader);
 
       if (!sessionId) {
-        // No session cookie, redirect to login
-        set.status = 302;
-        set.headers["Location"] = "/dashboard/login";
-        return;
+        // No session cookie, redirect to login using Elysia's redirect utility
+        return redirect("/dashboard/login", 302);
       }
 
       const session = getDashboardSession(sessionId);
       if (!session) {
-        // Invalid or expired session, redirect to login
-        set.status = 302;
-        set.headers["Location"] = "/dashboard/login";
+        // Invalid or expired session, redirect to login with logout cookie
+        // Set cookie header before redirecting
         set.headers["Set-Cookie"] = createLogoutCookie();
-        return;
+        return redirect("/dashboard/login", 302);
       }
 
       // Session valid, allow access
