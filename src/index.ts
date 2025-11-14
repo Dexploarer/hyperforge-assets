@@ -199,8 +199,12 @@ const app = new Elysia()
     return new Response(null, { status: 204 });
   })
 
-  // Dashboard - Asset browser UI
-  // Login page and assets are public (no auth required)
+  // ============================================
+  // DASHBOARD ROUTES
+  // ============================================
+
+  // Public dashboard routes (no auth required)
+  // Login page and static assets are accessible without authentication
   // Elysia automatically handles HEAD requests when returning Bun.file()
   .get("/dashboard/login", async ({ set }) => {
     try {
@@ -270,44 +274,49 @@ const app = new Elysia()
       return new Response("Internal Server Error", { status: 500 });
     }
   })
+
   // Protected dashboard routes (require authentication)
-  // Elysia automatically handles HEAD requests when returning Bun.file()
-  .use(requireDashboardAuth())
-  .get("/dashboard", async ({ set }) => {
-    try {
-      const filePath = join(ROOT_DIR, "dashboard", "index.html");
-      const file = Bun.file(filePath);
-      if (!(await file.exists())) {
-        console.error(`[Dashboard] File not found: ${filePath}`);
-        set.status = 404;
-        return new Response("File not found", { status: 404 });
-      }
-      set.headers["Cache-Control"] = "no-cache";
-      return file;
-    } catch (error) {
-      console.error("[Dashboard] Error serving index.html:", error);
-      set.status = 500;
-      return new Response("Internal Server Error", { status: 500 });
-    }
-  })
-  .get("/dashboard/*", async ({ params, set }) => {
-    try {
-      const relativePath = (params as any)["*"] || "";
-      const filePath = join(ROOT_DIR, "dashboard", relativePath);
-      const file = Bun.file(filePath);
-      if (!(await file.exists())) {
-        console.error(`[Dashboard] File not found: ${filePath}`);
-        set.status = 404;
-        return new Response("File not found", { status: 404 });
-      }
-      set.headers["Cache-Control"] = "no-cache";
-      return file;
-    } catch (error) {
-      console.error(`[Dashboard] Error serving file: ${(params as any)["*"]}`, error);
-      set.status = 404;
-      return new Response("File not found", { status: 404 });
-    }
-  })
+  // Apply authentication middleware only to these specific routes
+  // This ensures API routes remain accessible
+  .group("/dashboard", (app) =>
+    app
+      .use(requireDashboardAuth())
+      .get("", async ({ set }) => {
+        try {
+          const filePath = join(ROOT_DIR, "dashboard", "index.html");
+          const file = Bun.file(filePath);
+          if (!(await file.exists())) {
+            console.error(`[Dashboard] File not found: ${filePath}`);
+            set.status = 404;
+            return new Response("File not found", { status: 404 });
+          }
+          set.headers["Cache-Control"] = "no-cache";
+          return file;
+        } catch (error) {
+          console.error("[Dashboard] Error serving index.html:", error);
+          set.status = 500;
+          return new Response("Internal Server Error", { status: 500 });
+        }
+      })
+      .get("/*", async ({ params, set }) => {
+        try {
+          const relativePath = (params as any)["*"] || "";
+          const filePath = join(ROOT_DIR, "dashboard", relativePath);
+          const file = Bun.file(filePath);
+          if (!(await file.exists())) {
+            console.error(`[Dashboard] File not found: ${filePath}`);
+            set.status = 404;
+            return new Response("File not found", { status: 404 });
+          }
+          set.headers["Cache-Control"] = "no-cache";
+          return file;
+        } catch (error) {
+          console.error(`[Dashboard] Error serving file: ${(params as any)["*"]}`, error);
+          set.status = 404;
+          return new Response("File not found", { status: 404 });
+        }
+      })
+  )
 
   // Start server
   .listen(
