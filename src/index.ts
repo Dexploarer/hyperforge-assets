@@ -18,7 +18,7 @@
  * - Structured logging with Pino (high-performance, JSON logs)
  */
 
-import { Elysia, file } from "elysia";
+import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
 import { join } from "path";
@@ -52,9 +52,15 @@ import { serveFile, serveFileHead } from "./utils/file-server";
 
 // Configuration from environment variables
 const ROOT_DIR = process.cwd();
-const DATA_DIR = process.env.DATA_DIR || ROOT_DIR;
+// Use Railway volume mount path if available, otherwise use DATA_DIR env var, fallback to ROOT_DIR
+const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.DATA_DIR || ROOT_DIR;
 const PORT = process.env.PORT || 3005;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
+
+// Log directory paths for debugging
+console.log(`[Config] ROOT_DIR: ${ROOT_DIR}`);
+console.log(`[Config] DATA_DIR: ${DATA_DIR}`);
+console.log(`[Config] Dashboard path: ${join(ROOT_DIR, "dashboard")}`);
 
 // Asset directories to serve
 const ASSET_DIRS = ["models", "emotes", "music"];
@@ -219,35 +225,112 @@ const app = new Elysia()
 
   // Dashboard - Asset browser UI
   // Login page and assets are public (no auth required)
-  // Elysia automatically handles HEAD requests when returning file()
-  .get("/dashboard/login", ({ set }) => {
-    set.headers["Cache-Control"] = "no-cache";
-    return file(join(ROOT_DIR, "dashboard", "login.html"));
+  // Elysia automatically handles HEAD requests when returning Bun.file()
+  .get("/dashboard/login", async ({ set }) => {
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "login.html");
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) {
+        console.error(`[Dashboard] File not found: ${filePath}`);
+        set.status = 404;
+        return new Response("File not found", { status: 404 });
+      }
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving login.html:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
   })
-  .get("/dashboard/login.html", ({ set }) => {
-    set.headers["Cache-Control"] = "no-cache";
-    return file(join(ROOT_DIR, "dashboard", "login.html"));
+  .get("/dashboard/login.html", async ({ set }) => {
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "login.html");
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) {
+        console.error(`[Dashboard] File not found: ${filePath}`);
+        set.status = 404;
+        return new Response("File not found", { status: 404 });
+      }
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving login.html:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
   })
-  .get("/dashboard/login.js", ({ set }) => {
-    set.headers["Cache-Control"] = "no-cache";
-    return file(join(ROOT_DIR, "dashboard", "login.js"));
+  .get("/dashboard/login.js", async ({ set }) => {
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "login.js");
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) {
+        console.error(`[Dashboard] File not found: ${filePath}`);
+        set.status = 404;
+        return new Response("File not found", { status: 404 });
+      }
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving login.js:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
   })
-  .get("/dashboard/styles.css", ({ set }) => {
-    set.headers["Cache-Control"] = "no-cache";
-    return file(join(ROOT_DIR, "dashboard", "styles.css"));
+  .get("/dashboard/styles.css", async ({ set }) => {
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "styles.css");
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) {
+        console.error(`[Dashboard] File not found: ${filePath}`);
+        set.status = 404;
+        return new Response("File not found", { status: 404 });
+      }
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving styles.css:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
   })
   // Protected dashboard routes (require authentication)
-  // Elysia automatically handles HEAD requests when returning file()
+  // Elysia automatically handles HEAD requests when returning Bun.file()
   .use(requireDashboardAuth())
-  .get("/dashboard", ({ set }) => {
-    set.headers["Cache-Control"] = "no-cache";
-    return file(join(ROOT_DIR, "dashboard", "index.html"));
+  .get("/dashboard", async ({ set }) => {
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "index.html");
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) {
+        console.error(`[Dashboard] File not found: ${filePath}`);
+        set.status = 404;
+        return new Response("File not found", { status: 404 });
+      }
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving index.html:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
   })
-  .get("/dashboard/*", ({ params, set }) => {
-    const relativePath = (params as any)["*"] || "";
-    const filePath = join(ROOT_DIR, "dashboard", relativePath);
-    set.headers["Cache-Control"] = "no-cache";
-    return file(filePath);
+  .get("/dashboard/*", async ({ params, set }) => {
+    try {
+      const relativePath = (params as any)["*"] || "";
+      const filePath = join(ROOT_DIR, "dashboard", relativePath);
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) {
+        console.error(`[Dashboard] File not found: ${filePath}`);
+        set.status = 404;
+        return new Response("File not found", { status: 404 });
+      }
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error(`[Dashboard] Error serving file: ${(params as any)["*"]}`, error);
+      set.status = 404;
+      return new Response("File not found", { status: 404 });
+    }
   })
 
   // Start server
