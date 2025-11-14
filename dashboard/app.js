@@ -10,20 +10,27 @@ let sortState = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('[DEBUG] ========================================');
+  console.log('[DEBUG] Dashboard initializing...');
+  console.log('[DEBUG] ========================================');
   checkAuthStatus();
   loadFiles();
   loadDirectories();
   setupEventListeners();
+  console.log('[DEBUG] Initialization complete');
 });
 
 // Check authentication status
 async function checkAuthStatus() {
   try {
+    console.log('[DEBUG] Checking auth status...');
     const response = await fetch('/api/auth/status');
     const data = await response.json();
+    console.log('[DEBUG] Auth status:', data);
 
     // If auth is enabled and user is authenticated, show logout button
     if (data.authEnabled && data.authenticated) {
+      console.log('[DEBUG] Auth enabled and authenticated');
       const logoutBtn = document.getElementById('logoutBtn');
       if (logoutBtn) {
         logoutBtn.classList.remove('hidden');
@@ -32,10 +39,13 @@ async function checkAuthStatus() {
 
     // If auth is enabled but not authenticated, redirect to login
     if (data.authEnabled && !data.authenticated) {
+      console.log('[DEBUG] Auth enabled but not authenticated - redirecting to login');
       window.location.href = '/dashboard/login';
+    } else {
+      console.log('[DEBUG] Auth check passed, continuing...');
     }
   } catch (error) {
-    console.error('Auth status check error:', error);
+    console.error('[DEBUG] Auth status check error:', error);
   }
 }
 
@@ -109,16 +119,23 @@ function setupEventListeners() {
 // Load files from API
 async function loadFiles() {
   try {
+    console.log('[DEBUG] Loading files from /api/files...');
     const response = await fetch('/api/files');
+    console.log('[DEBUG] Response status:', response.status, response.statusText);
     const data = await response.json();
+    console.log('[DEBUG] Data received:', data);
+    console.log('[DEBUG] Number of files:', data.files ? data.files.length : 0);
     allFiles = data.files;
     filteredFiles = [...allFiles];
+    console.log('[DEBUG] allFiles length:', allFiles.length);
+    console.log('[DEBUG] filteredFiles length:', filteredFiles.length);
     updateStats();
     sortFiles();
     updateSortIndicators();
     renderFiles();
+    console.log('[DEBUG] Files loaded and rendered successfully');
   } catch (error) {
-    console.error('Error loading files:', error);
+    console.error('[DEBUG] Error loading files:', error);
     showError('Failed to load files');
   }
 }
@@ -321,9 +338,17 @@ function getFileIcon(type) {
 
 // Render files table
 function renderFiles() {
+  console.log('[DEBUG] renderFiles() called');
+  console.log('[DEBUG] filteredFiles.length:', filteredFiles.length);
   const fileList = document.getElementById('fileList');
 
+  if (!fileList) {
+    console.error('[DEBUG] ERROR: fileList element not found!');
+    return;
+  }
+
   if (filteredFiles.length === 0) {
+    console.log('[DEBUG] No files to display');
     fileList.innerHTML = `
       <tr>
         <td colspan="7" class="px-6 py-8 text-center text-gray-400">
@@ -333,6 +358,8 @@ function renderFiles() {
     `;
     return;
   }
+
+  console.log('[DEBUG] Rendering', filteredFiles.length, 'files...');
 
   fileList.innerHTML = filteredFiles.map(file => {
     const isRenaming = renamingFile && renamingFile.path === file.path;
