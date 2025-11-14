@@ -16,9 +16,9 @@ const isDevelopment = !isProduction;
 export const pinoConfig: LoggerOptions = {
   level: process.env.LOG_LEVEL || (isProduction ? "info" : "debug"),
 
-  // Production: Structured JSON output
+  // Production: Structured JSON output ONLY (no pino-pretty)
   // Development: Pretty-printed with colors
-  ...(isDevelopment && {
+  ...(isDevelopment && typeof window === "undefined" && {
     transport: {
       target: "pino-pretty",
       options: {

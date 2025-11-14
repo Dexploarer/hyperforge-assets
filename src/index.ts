@@ -31,9 +31,9 @@ import { pinoConfig } from "./config/logger";
 // Middleware and plugins
 import { errorHandler } from "./middleware/errorHandler";
 import { gracefulShutdown } from "./plugins/graceful-shutdown";
-import { compression } from "./middleware/compression";
+// import { compression } from "./middleware/compression"; // TEMPORARILY DISABLED
 import { securityHeaders } from "./middleware/security";
-import { apiRateLimit, staticFileRateLimit } from "./middleware/rateLimit";
+// import { apiRateLimit, staticFileRateLimit } from "./middleware/rateLimit"; // TEMPORARILY DISABLED
 import { requireDashboardAuth } from "./middleware/auth";
 
 // Routes
@@ -144,10 +144,12 @@ const app = new Elysia()
   .use(securityHeaders())
 
   // Compression middleware (before routes, after CORS)
-  .use(compression)
+  // TEMPORARILY DISABLED - debugging 502 errors
+  // .use(compression)
 
   // Rate limiting for API endpoints (exclude static files)
-  .use(apiRateLimit)
+  // TEMPORARILY DISABLED - debugging 502 errors
+  // .use(apiRateLimit)
 
   // Error handling middleware
   .use(errorHandler)
@@ -171,7 +173,8 @@ const app = new Elysia()
   // ============================================
 
   // Apply rate limiting to static file routes
-  .use(staticFileRateLimit)
+  // TEMPORARILY DISABLED - debugging 502 errors
+  // .use(staticFileRateLimit)
 
   // Models directory - 3D GLB files, metadata, textures
   .get("/models/*", async (context) => {
