@@ -231,9 +231,17 @@ const app = new Elysia()
     return new Response(null, { status: 200 });
   })
   .get("/dashboard/login.html", ({ set }) => {
-    set.headers["Content-Type"] = "text/html";
-    set.headers["Cache-Control"] = "no-cache";
-    return Bun.file(join(ROOT_DIR, "dashboard", "login.html"));
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "login.html");
+      const file = Bun.file(filePath);
+      set.headers["Content-Type"] = "text/html";
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving login.html:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
   })
   .head("/dashboard/login.html", ({ set }) => {
     set.headers["Content-Type"] = "text/html";
@@ -242,9 +250,17 @@ const app = new Elysia()
     return new Response(null, { status: 200 });
   })
   .get("/dashboard/login.js", ({ set }) => {
-    set.headers["Content-Type"] = "application/javascript";
-    set.headers["Cache-Control"] = "no-cache";
-    return Bun.file(join(ROOT_DIR, "dashboard", "login.js"));
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "login.js");
+      const file = Bun.file(filePath);
+      set.headers["Content-Type"] = "application/javascript";
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving login.js:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
   })
   .head("/dashboard/login.js", ({ set }) => {
     set.headers["Content-Type"] = "application/javascript";
