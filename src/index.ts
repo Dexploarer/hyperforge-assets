@@ -18,7 +18,7 @@
  * - Structured logging with Pino (high-performance, JSON logs)
  */
 
-import { Elysia } from "elysia";
+import { Elysia, file } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
 import { join } from "path";
@@ -219,78 +219,35 @@ const app = new Elysia()
 
   // Dashboard - Asset browser UI
   // Login page and assets are public (no auth required)
+  // Elysia automatically handles HEAD requests when returning file()
   .get("/dashboard/login", ({ set }) => {
-    set.headers["Content-Type"] = "text/html";
     set.headers["Cache-Control"] = "no-cache";
-    return Bun.file(join(ROOT_DIR, "dashboard", "login.html"));
-  })
-  .head("/dashboard/login", ({ set }) => {
-    set.headers["Content-Type"] = "text/html";
-    set.headers["Cache-Control"] = "no-cache";
-    set.headers["Content-Length"] = "4704";
-    return new Response(null, { status: 200 });
+    return file(join(ROOT_DIR, "dashboard", "login.html"));
   })
   .get("/dashboard/login.html", ({ set }) => {
-    try {
-      const filePath = join(ROOT_DIR, "dashboard", "login.html");
-      const file = Bun.file(filePath);
-      set.headers["Content-Type"] = "text/html";
-      set.headers["Cache-Control"] = "no-cache";
-      return file;
-    } catch (error) {
-      console.error("[Dashboard] Error serving login.html:", error);
-      set.status = 500;
-      return new Response("Internal Server Error", { status: 500 });
-    }
-  })
-  .head("/dashboard/login.html", ({ set }) => {
-    set.headers["Content-Type"] = "text/html";
     set.headers["Cache-Control"] = "no-cache";
-    set.headers["Content-Length"] = "4704";
-    return new Response(null, { status: 200 });
+    return file(join(ROOT_DIR, "dashboard", "login.html"));
   })
   .get("/dashboard/login.js", ({ set }) => {
-    try {
-      const filePath = join(ROOT_DIR, "dashboard", "login.js");
-      const file = Bun.file(filePath);
-      set.headers["Content-Type"] = "application/javascript";
-      set.headers["Cache-Control"] = "no-cache";
-      return file;
-    } catch (error) {
-      console.error("[Dashboard] Error serving login.js:", error);
-      set.status = 500;
-      return new Response("Internal Server Error", { status: 500 });
-    }
-  })
-  .head("/dashboard/login.js", ({ set }) => {
-    set.headers["Content-Type"] = "application/javascript";
     set.headers["Cache-Control"] = "no-cache";
-    set.headers["Content-Length"] = "3237";
-    return new Response(null, { status: 200 });
+    return file(join(ROOT_DIR, "dashboard", "login.js"));
   })
   .get("/dashboard/styles.css", ({ set }) => {
-    set.headers["Content-Type"] = "text/css";
     set.headers["Cache-Control"] = "no-cache";
-    return Bun.file(join(ROOT_DIR, "dashboard", "styles.css"));
-  })
-  .head("/dashboard/styles.css", ({ set }) => {
-    set.headers["Content-Type"] = "text/css";
-    set.headers["Cache-Control"] = "no-cache";
-    set.headers["Content-Length"] = "11980";
-    return new Response(null, { status: 200 });
+    return file(join(ROOT_DIR, "dashboard", "styles.css"));
   })
   // Protected dashboard routes (require authentication)
+  // Elysia automatically handles HEAD requests when returning file()
   .use(requireDashboardAuth())
   .get("/dashboard", ({ set }) => {
-    set.headers["Content-Type"] = "text/html";
     set.headers["Cache-Control"] = "no-cache";
-    return Bun.file(join(ROOT_DIR, "dashboard", "index.html"));
+    return file(join(ROOT_DIR, "dashboard", "index.html"));
   })
   .get("/dashboard/*", ({ params, set }) => {
     const relativePath = (params as any)["*"] || "";
     const filePath = join(ROOT_DIR, "dashboard", relativePath);
     set.headers["Cache-Control"] = "no-cache";
-    return Bun.file(filePath);
+    return file(filePath);
   })
 
   // Start server
