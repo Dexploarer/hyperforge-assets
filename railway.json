@@ -4,10 +4,6 @@
     "builder": "RAILPACK"
   },
   "deploy": {
-    "startCommand": "bun run start",
-    "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 30,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3
+    "startCommand": "bun run start"
   }
 }
