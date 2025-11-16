@@ -274,6 +274,23 @@ const app = new Elysia()
       return new Response("Internal Server Error", { status: 500 });
     }
   })
+  .get("/dashboard/app.js", async ({ set }) => {
+    try {
+      const filePath = join(ROOT_DIR, "dashboard", "app.js");
+      const file = Bun.file(filePath);
+      if (!(await file.exists())) {
+        console.error(`[Dashboard] File not found: ${filePath}`);
+        set.status = 404;
+        return new Response("File not found", { status: 404 });
+      }
+      set.headers["Cache-Control"] = "no-cache";
+      return file;
+    } catch (error) {
+      console.error("[Dashboard] Error serving app.js:", error);
+      set.status = 500;
+      return new Response("Internal Server Error", { status: 500 });
+    }
+  })
 
   // Protected dashboard routes (require authentication)
   // Apply authentication middleware only to these specific routes
