@@ -48,7 +48,8 @@ import { serveFile, serveFileHead } from "./utils/file-server";
 // Configuration from environment variables
 const ROOT_DIR = process.cwd();
 // Use Railway volume mount path if available, otherwise use DATA_DIR env var, fallback to ROOT_DIR
-const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.DATA_DIR || ROOT_DIR;
+const DATA_DIR =
+  process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.DATA_DIR || ROOT_DIR;
 const PORT = process.env.PORT || 3005;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "*";
 
@@ -150,60 +151,46 @@ const app = new Elysia()
   // .use(staticFileRateLimit)
 
   // Models directory - 3D GLB files, metadata, textures
-  .get("/models/*", async (context) => {
+  .all("/models/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
     const filePath = join(DATA_DIR, "models", relativePath);
+    if (context.request.method === "HEAD") {
+      return serveFileHead(filePath, context);
+    }
     return serveFile(filePath, context);
-  })
-  .head("/models/*", async (context) => {
-    const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(DATA_DIR, "models", relativePath);
-    return serveFileHead(filePath, context);
   })
 
   // Emotes directory - Animation GLB files
-  .get("/emotes/*", async (context) => {
+  .all("/emotes/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
     const filePath = join(DATA_DIR, "emotes", relativePath);
-    return serveFile(filePath, context, {
-      contentType: "model/gltf-binary",
-    });
-  })
-  .head("/emotes/*", async (context) => {
-    const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(DATA_DIR, "emotes", relativePath);
-    return serveFileHead(filePath, context, {
-      contentType: "model/gltf-binary",
-    });
+    const options = { contentType: "model/gltf-binary" };
+    if (context.request.method === "HEAD") {
+      return serveFileHead(filePath, context, options);
+    }
+    return serveFile(filePath, context, options);
   })
 
   // Music directory - Audio files (MP3, WAV, OGG)
   // Range requests are critical for audio seeking
-  .get("/music/*", async (context) => {
+  .all("/music/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
     const filePath = join(DATA_DIR, "music", relativePath);
-    return serveFile(filePath, context, {
-      contentType: "audio/mpeg",
-    });
-  })
-  .head("/music/*", async (context) => {
-    const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(DATA_DIR, "music", relativePath);
-    return serveFileHead(filePath, context, {
-      contentType: "audio/mpeg",
-    });
+    const options = { contentType: "audio/mpeg" };
+    if (context.request.method === "HEAD") {
+      return serveFileHead(filePath, context, options);
+    }
+    return serveFile(filePath, context, options);
   })
 
   // Media directory - AI-generated portraits, banners, audio
-  .get("/media/*", async (context) => {
+  .all("/media/*", async (context) => {
     const relativePath = (context.params as any)["*"] || "";
     const filePath = join(DATA_DIR, "media", relativePath);
+    if (context.request.method === "HEAD") {
+      return serveFileHead(filePath, context);
+    }
     return serveFile(filePath, context);
-  })
-  .head("/media/*", async (context) => {
-    const relativePath = (context.params as any)["*"] || "";
-    const filePath = join(DATA_DIR, "media", relativePath);
-    return serveFileHead(filePath, context);
   })
 
   // Favicon handler (prevent 404 errors in browsers)
@@ -340,11 +327,14 @@ const app = new Elysia()
           set.headers["Cache-Control"] = "no-cache";
           return file;
         } catch (error) {
-          console.error(`[Dashboard] Error serving file: ${(params as any)["*"]}`, error);
+          console.error(
+            `[Dashboard] Error serving file: ${(params as any)["*"]}`,
+            error,
+          );
           set.status = 404;
           return new Response("File not found", { status: 404 });
         }
-      })
+      }),
   )
 
   // Start server
@@ -358,9 +348,11 @@ const app = new Elysia()
     ({ hostname, port }) => {
       console.log(`\n[Server] ✅ Elysia server started successfully!`);
       console.log(`[Server] Listening on http://${hostname}:${port}`);
-      console.log(`[Server] Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log(
+        `[Server] Environment: ${process.env.NODE_ENV || "development"}`,
+      );
       console.log(`[Server] PORT env var: ${process.env.PORT}\n`);
-    }
+    },
   );
 
 // Determine base URL for logging (Railway or local)
