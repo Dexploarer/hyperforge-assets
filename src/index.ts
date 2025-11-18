@@ -58,7 +58,7 @@ console.log(`[Config] DATA_DIR: ${DATA_DIR}`);
 console.log(`[Config] Dashboard path: ${join(ROOT_DIR, "dashboard")}`);
 
 // Asset directories to serve
-const ASSET_DIRS = ["models", "emotes", "music"];
+const ASSET_DIRS = ["models", "emotes", "music", "media"];
 
 // Create Elysia app
 const app = new Elysia()
@@ -192,6 +192,18 @@ const app = new Elysia()
     return serveFileHead(filePath, context, {
       contentType: "audio/mpeg",
     });
+  })
+
+  // Media directory - AI-generated portraits, banners, audio
+  .get("/media/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
+    const filePath = join(DATA_DIR, "media", relativePath);
+    return serveFile(filePath, context);
+  })
+  .head("/media/*", async (context) => {
+    const relativePath = (context.params as any)["*"] || "";
+    const filePath = join(DATA_DIR, "media", relativePath);
+    return serveFileHead(filePath, context);
   })
 
   // Favicon handler (prevent 404 errors in browsers)
